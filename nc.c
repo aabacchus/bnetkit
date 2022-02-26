@@ -18,12 +18,11 @@
 
 #define BUF_LEN 1024
 
-void usage(const char *);
-int sock_write(int, char *, size_t);
-int sock_read(int);
+int sock_write(int sfd, char *msg, size_t len);
+int sock_read(int sfd);
 
 int server_connect(char *argv0, char *nodename, char *servname) {
-    int s, sfd = -1;
+    int sfd = -1;
     struct addrinfo hints, *result, *rp;
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
@@ -31,7 +30,7 @@ int server_connect(char *argv0, char *nodename, char *servname) {
     hints.ai_flags = AI_PASSIVE;
     hints.ai_protocol = 0;
 
-    s = getaddrinfo(nodename, servname, &hints, &result);
+    int s = getaddrinfo(nodename, servname, &hints, &result);
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
         return -1;
@@ -62,9 +61,10 @@ int server_connect(char *argv0, char *nodename, char *servname) {
     return sfd;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
     if (argc < 3) {
-        usage(argv[0]);
+        fprintf(stderr, "usage: %s host port\n", argv[0]);
+        return 1;
     }
 
     int sfd = server_connect(argv[0], argv[1], argv[2]);
@@ -82,12 +82,12 @@ int main(int argc, char *argv[]) {
     size_t linelen = 0;
 
     while (1) {
+        fds[0].revents = 0;
+        fds[1].revents = 0;
         pollret = poll(fds, 2, -1);
         if (pollret <= 0) {
             if (errno == EAGAIN)
                 continue;
-            /*if (pollret == 0)
-                fprintf(stderr, "timed out\n");*/
             perror("poll");
             free(line);
             return 1;
@@ -95,9 +95,12 @@ int main(int argc, char *argv[]) {
         if (fds[0].revents) {
             ssize_t n = getline(&line, &linelen, stdin);
             if (n  == -1) {
-                if (shutdown(sfd, SHUT_WR) == -1) /* send EOF to server */
+                /* send EOF to server */
+                if (shutdown(sfd, SHUT_WR) == -1)
                     perror("shutdown");
-                fds[0].fd = -1; /* prevent poll from checking stdin all the time */
+
+                /* prevent poll from checking stdin all the time */
+                fds[0].fd = -1;
                 continue;
             }
             if (sock_write(sfd, line, (size_t)n) != 0) {
@@ -116,8 +119,6 @@ int main(int argc, char *argv[]) {
                 break;
             }
         }
-        fds[0].revents = 0;
-        fds[1].revents = 0;
     }
 
     free(line);
@@ -129,12 +130,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void usage(const char *argv0){
-    fprintf(stderr, "usage: %s host port\n", argv0);
-    exit(1);
-}
-
-int sock_write(int sfd, char *msg, size_t len){
+int sock_write(int sfd, char *msg, size_t len) {
     ssize_t ret = send(sfd, msg, len, 0);
     if (ret != (ssize_t) len) {
         perror("sock_write");
@@ -143,10 +139,8 @@ int sock_write(int sfd, char *msg, size_t len){
     return 0;
 }
 
-int sock_read(int sfd){
-    char buff[BUF_LEN];// = {'\0'};
-    memset(&buff, 0, BUF_LEN);
-
+int sock_read(int sfd) {
+    char buff[BUF_LEN] = {'\0'};
     ssize_t ret = recv(sfd, buff, BUF_LEN, 0);
 
     if (ret < 0) {
