@@ -1,6 +1,8 @@
 /*
- * This file is in the public domain.
+ * This file is in the public domain. If this is not possible in your region,
+ * please refer to the UNLICENSE which should be included with the software.
  * Author: Ben Fuller
+ * Upstream: https://git.bvnf.space/bnetkit/
  *
  * Basic netcat-like utility to create a connection on the specified
  * address and port, using stdin and stdout.
