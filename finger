@@ -1,0 +1,13 @@
+#!/bin/sh -e
+
+[ "$#" -lt 1 ] && {
+    printf "usage: %s user@host...\n" "$0" >&2
+    exit 1
+}
+
+for u; do
+    user="${u%%@*}"
+    host="${u##*@}"
+    printf "[%s@%s]\n" "$user" "$host"
+    printf "%s\r\n" "$user" | ./nc "$host" 79
+done

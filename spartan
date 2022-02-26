@@ -1,0 +1,13 @@
+#!/bin/sh -e
+
+[ "$#" -lt 1 ] && {
+    printf "usage: %s [spartan://]example.com/foo/bar\n" "$0" >&2
+    exit 1
+}
+
+
+nopref="${1##spartan://}"
+host="${nopref%%/*}"
+path="${nopref#"$host"}"
+path="${path:-/}"
+printf "%s %s 0\r\n" "$host" "${path}" | tee /dev/stderr | ./nc "$host" 300
