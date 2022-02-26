@@ -52,6 +52,7 @@ int main(int argc, char *argv[]) {
 
         if (close(sfd) == -1) {
             perror("close");
+            freeaddrinfo(result);
             return 1;
         }
     }
@@ -59,7 +60,7 @@ int main(int argc, char *argv[]) {
     freeaddrinfo(result);
 
     if (rp == NULL) {
-        fprintf(stderr, "connection refused\n");
+        fprintf(stderr, "%s: %s:%s: connection refused\n", argv[0], argv[1], argv[2]);
         return 1;
     }
 
@@ -68,7 +69,7 @@ int main(int argc, char *argv[]) {
     fds[0].fd = 0;
     fds[0].events = POLLIN;
     fds[1].fd = sfd;
-    fds[1].events = POLLIN | POLLWRBAND;
+    fds[1].events = POLLIN;
 
     char *line = NULL;
     size_t linelen = 0;
@@ -84,22 +85,27 @@ int main(int argc, char *argv[]) {
             free(line);
             return 1;
         }
-        if (fds[0].revents & POLLIN) {
-            ssize_t n;
-            if ((n = getline(&line, &linelen, stdin)) == -1) {
-                break;
+        if (fds[0].revents) {
+            ssize_t n = getline(&line, &linelen, stdin);
+            if (n  == -1) {
+                if (shutdown(sfd, SHUT_WR) == -1) /* send EOF to server */
+                    perror("shutdown");
+                fds[0].fd = -1; /* prevent poll from checking stdin all the time */
+                continue;
             }
             if (sock_write(sfd, line, (size_t)n) != 0) {
                 free(line);
                 return 1;
             }
+
         }
-        if (fds[1].revents & POLLIN) {
+        if (fds[1].revents) {
             int rec = sock_read(sfd);
             if (rec < 0) {
                 free(line);
                 return 1;
             } else if (rec == 0) {
+                /* received EOF */
                 break;
             }
         }
@@ -122,8 +128,7 @@ void usage(const char *argv0){
 }
 
 int sock_write(int sfd, char *msg, size_t len){
-    ssize_t ret;
-    ret = send(sfd, msg, len, 0);
+    ssize_t ret = send(sfd, msg, len, 0);
     if (ret != (ssize_t) len) {
         perror("sock_write");
         return 1;
