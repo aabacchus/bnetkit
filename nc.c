@@ -22,24 +22,19 @@ void usage(const char *);
 int sock_write(int, char *, size_t);
 int sock_read(int);
 
-int main(int argc, char *argv[]) {
+int server_connect(char *argv0, char *nodename, char *servname) {
     int s, sfd = -1;
     struct addrinfo hints, *result, *rp;
-    if (argc < 3) {
-        usage(argv[0]);
-    }
-
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
     hints.ai_protocol = 0;
 
-
-    s = getaddrinfo(argv[1], argv[2], &hints, &result);
+    s = getaddrinfo(nodename, servname, &hints, &result);
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-        return 1;
+        return -1;
     }
 
     for (rp = result; rp != NULL; rp = rp->ai_next) {
@@ -53,16 +48,28 @@ int main(int argc, char *argv[]) {
         if (close(sfd) == -1) {
             perror("close");
             freeaddrinfo(result);
-            return 1;
+            return -1;
         }
     }
 
     freeaddrinfo(result);
 
     if (rp == NULL) {
-        fprintf(stderr, "%s: %s:%s: connection refused\n", argv[0], argv[1], argv[2]);
-        return 1;
+        fprintf(stderr, "%s: %s:%s: connection refused\n", argv0, nodename, servname);
+        return -1;
     }
+
+    return sfd;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        usage(argv[0]);
+    }
+
+    int sfd = server_connect(argv[0], argv[1], argv[2]);
+    if (sfd == -1)
+        return 1;
 
     int pollret;
     struct pollfd fds[2];
