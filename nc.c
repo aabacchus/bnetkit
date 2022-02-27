@@ -34,7 +34,7 @@ int server_connect(char *argv0, char *nodename, char *servname) {
 
     int s = getaddrinfo(nodename, servname, &hints, &result);
     if (s != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        fprintf(stderr, "%s: getaddrinfo: %s\n", argv0, gai_strerror(s));
         return -1;
     }
 
@@ -64,6 +64,7 @@ int server_connect(char *argv0, char *nodename, char *servname) {
 }
 
 int main(int argc, char **argv) {
+    int timeout = 5 * 1000; /* 5 seconds */
     if (argc < 3) {
         fprintf(stderr, "usage: %s host port\n", argv[0]);
         return 1;
@@ -86,11 +87,17 @@ int main(int argc, char **argv) {
     while (1) {
         fds[0].revents = 0;
         fds[1].revents = 0;
-        pollret = poll(fds, 2, -1);
-        if (pollret <= 0) {
+        errno = 0;
+        pollret = poll(fds, 2, timeout);
+        if (pollret < 0) {
             if (errno == EAGAIN)
                 continue;
             perror("poll");
+            free(line);
+            return 1;
+        } else if (pollret == 0) {
+            /* timeout */
+            fprintf(stderr, "%s: %s:%s: timeout\r\n", argv[0], argv[1], argv[2]);
             free(line);
             return 1;
         }
