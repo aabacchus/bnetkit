@@ -9,4 +9,4 @@
 nopref="${1##gopher://}"
 host="${nopref%%/*}"
 path="${nopref#"$host"}"
-printf "%s\r\n" "$path" | tee /dev/stderr | ./nc "$host" 70
+printf "%s\r\n" "$path" | ./nc "$host" 70
