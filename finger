@@ -6,7 +6,10 @@
 }
 
 for u; do
-    user="${u%%@*}"
+    case "$u" in
+        *@*) user="${u%%@*}" ;;
+        *) user="" ;;
+    esac
     host="${u##*@}"
     printf "[%s@%s]\n" "$user" "$host"
     printf "%s\r\n" "$user" | ./nc "$host" 79
