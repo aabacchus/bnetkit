@@ -1,0 +1,14 @@
+#!/bin/sh -e
+
+[ "$#" -lt 1 ] && {
+    printf "usage: %s [gemini://]example.com/foo/bar\n" "$0" >&2
+    exit 1
+}
+
+
+for uri; do
+    case "$uri" in "gemini://"*) ;; *) uri="gemini://$uri" ;; esac
+    nopref="${uri##gemini://}"
+    host="${nopref%%/*}"
+    printf "%s\r\n" "$uri" | tee /dev/stderr | ./tlsnc "$host" 1965
+done
